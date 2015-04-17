@@ -1,0 +1,18 @@
+{#
+/**
+ * @file
+ * Default theme implementation for an 'driki' #type form element.
+ *
+ * Available variables
+ * - attributes: A list of HTML attributes for the wrapper element.
+ * - children: The rendered fields.
+ *
+ * @see template_preprocess_driki()
+ *
+ * @ingroup themeable
+ */
+#}
+
+<div{{ attributes }}>{{ children }}
+  <div class="driki-wiki-entry">{{ wikipage }}</div>
+</div>

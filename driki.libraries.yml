@@ -1,0 +1,16 @@
+driki-field-renderer:
+  version: 1.x
+  css:
+    theme:
+      css/driki_front.css: {}
+  dependencies:
+    - core/jquery
+
+driki-field-widget-renderer:
+  version: 1.x
+  css:
+    theme:
+      css/driki_back.css: {}
+  dependencies:
+    - core/jquery
+    - core/drupal.dialog

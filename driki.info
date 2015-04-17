@@ -1,0 +1,7 @@
+name = Driki
+description = Reads wikis and offers a drupal editor the ability to manage the content within drupal context.
+core = 7.x
+package = "Services"
+stylesheets[all][] = css/driki_front.css
+dependencies[] = libraries
+configure = "admin/config/services/driki"

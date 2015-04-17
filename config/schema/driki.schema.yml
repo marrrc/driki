@@ -1,0 +1,7 @@
+driki.settings:
+  type: mapping
+  label: 'Driki settings'
+  mapping:
+    urlparams:
+      type: string
+      label: 'URL Parameters'

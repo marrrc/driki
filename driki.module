@@ -1,0 +1,336 @@
+<?php
+
+/**
+ * @file
+ * module file with all functions for Driki usage
+ */
+
+use Drupal\Component\Utility\Html;
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\Core\Field\FieldItemListInterface;
+use Doctrine\Common\Util\Debug;
+use Drupal\Core\Entity\EntityManagerInterface;
+use Drupal\Core\Field\ConfigFieldItemInterface;
+
+/**
+ * Implements hook_theme().
+ */
+function driki_theme($existing, $type, $theme, $path) {
+  return array(
+    'driki_field' => array(
+      'variables' => array(
+        'url' => NULL,
+        'format' => NULL,
+        'wikipage' => NULL,
+      ),
+     'template' => 'driki_field',
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_validate().
+ */
+// function driki_field_validate($entity_type, $entity, $field, $instance, $langcode, $items, &$errors) {
+//   foreach ($items as $delta => $item) {
+//     // Dont validate if we dont want to fetch the data - so no processing done.
+//     if($item['driki_tmp_fetch_data'] == 0) break;
+
+//     if (!empty($item['url'])) {
+//       // Check for valid URL.
+//       if (!valid_url($item['url'], $absolute = TRUE)) {
+//         $errors[$field['field_name']][$langcode][$delta][] = array(
+//           'error' => 'driki_invalid',
+//           'message' => t('@label must be a valid URL.', array('@label' => $instance['label'])),
+//         );
+//       }
+
+//       $driki_url_params = _driki_get_saved_params();
+
+//       // Get per temporaray, per field parameters
+//       if(isset($item['driki_tmp_extra_params']) && !empty($item['driki_tmp_extra_params'])) {
+//         $tmp_params = explode(';', $item['driki_tmp_extra_params']);
+//         foreach($tmp_params as $tmp_param) {
+//           if($driki_url_params == '') {
+//           $driki_url_params .= '?' . $tmp_param;
+//           }
+//           else {
+//             $driki_url_params .= '&' . $tmp_param;
+//           }
+//         }
+//       }
+
+//       $wiki_url = $item['url'] . $driki_url_params;
+//       // watchdog('driki', 'wiki url: @m', array('@m' => var_export($wiki_url, TRUE)), WATCHDOG_INFO);
+//       $data = _driki_curl_get_page($wiki_url);
+
+//       if (!$data) {
+//         // Resource could not be retrieved.
+//         $errors[$field['field_name']][$langcode][$delta][] = array(
+//           'error' => 'driki_invalid',
+//           'message' => t('@label: Resource could not be retrieved.', array('@label' => $instance['label'])),
+//         );
+//       }
+
+//       libxml_clear_errors();
+//       libxml_use_internal_errors(TRUE);
+//       $xml = simplexml_load_string($data);
+
+//       if (!$xml) {
+//         // No valid XML.
+//         $errors = libxml_get_errors();
+//         $error_output = '<ul>';
+//         foreach ($errors as $error) {
+//           $error_output .= '<li>' . $error->message . '(error code ' . $error->code . ')</li>';
+//         }
+
+//         if (empty($errors)) {
+//           $message = t('@label must be valid wiki XML.', array('@label' => $instance['label']));
+//         }
+//         else {
+//           $message = t('@label must be valid wiki XML.<br />Messages given by SimpleXML: @error', array('@label' => $instance['label'], 'error' => $error_output));
+//         }
+
+//         $error_output .= '</ul>';
+//         $errors[$field['field_name']][$langcode][$delta][] = array(
+//           'error' => 'driki_invalid',
+//           'message' => $message,
+//         );
+//       }
+//     }
+//   }
+// }
+
+
+// /**
+//  * Implements hook_node_form_alter().
+//  */
+function driki_form_node_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
+  // Only do the parsing for driki fields.
+  $field_map = \Drupal::entityManager()->getFieldMap();
+  $form_entity = $form_state->getFormObject()->getEntity();
+  $node_type = $form_entity->bundle();
+  foreach ($field_map['node'] as $key => $value) {
+    if ($value['type'] == 'driki_field' && in_array($node_type, $value['bundles'])) {
+      $form[$key]['widget'][0]['driki_tmp_extra_params'] = array(
+        '#type' => 'textfield',
+        '#title' => t('URL Parameters'),
+        '#description' => t('Additional URL Parameters (format: key=value / separate with semicolon)'),
+        '#default_value' => '',
+        '#size' => 60,
+        '#maxlength' => 2048,
+      );
+      $form[$key]['widget'][0]['driki_tmp_fetch_data'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Fetch new data'),
+        '#description' => t('Check this option if you actually want to fetch from the external source.'),
+        '#default_value' => 0,
+      );
+
+      $form['actions']['publish']['#submit'][] = '_driki_field_process'; // Custom submit handlers now have to be added specifically to the button pressed.
+      $form['actions']['unpublish']['#submit'][] = '_driki_field_process';
+      $form['actions']['submit']['#submit'][] = '_driki_field_process';
+      break;
+    }
+    $form_state->setValue(['field_wicked', 0, 'wikipage'], 'test');
+  }
+}
+
+// /**
+//  * Field process callback
+//  */
+function _driki_field_process($form, &$form_state) {
+  // See https://www.drupal.org/node/2310411
+  // Get the actual driki fields.
+  $extra_params = $form_state->getValue('driki_tmp_extra_params');
+  $fetch_data   = $form_state->getValue('driki_tmp_fetch_data');
+  $form_entity  = $form_state->getFormObject()->getEntity();
+  $node_type    = $form_entity->bundle();
+  $form_fields  = $form_entity->getFieldDefinitions();
+  foreach ($form_fields as $key => $value) {
+    // If driki field was found, get the XML, filter it with the chosen format &
+    // populate the wikipage data column.
+    if (isset($value->field_type) && $value->field_type == 'driki_field') {
+      // Get import parameters
+      $driki_url_params = _driki_get_saved_params();
+      $driki_params = _driki_get_saved_params('array');
+      // Get per temporaray, per field parameters
+      if(isset($extra_params) && !empty($extra_params)) {
+        $tmp_params = explode(';', $extra_params);
+        foreach($tmp_params as $tmp_param) {
+          if($driki_url_params == '') {
+          $driki_url_params .= '?' . $tmp_param;
+          }
+          else {
+            $driki_url_params .= '&' . $tmp_param;
+          }
+        }
+      }
+
+      $wk_url = $form_state->getValue([$value->field_name, 0, 'url']);
+      $wk_format = $form_state->getValue([$value->field_name, 0, 'format']);
+      $wk_wikipage = '';
+
+      // Dont validate if we dont want to fetch the data - so no processing done.
+      if($fetch_data == 0) {
+        if ($form_state->hasValue([$value->field_name, 0,'wikipage']) && !$form_state->isValueEmpty([$value->field_name, 0,'wikipage'])) {
+          $wk_wikipage = $form_state->getValue([$value->field_name, 0,'wikipage']);
+        }
+        else {
+          $wk_wikipage = '';
+        }
+      }
+      else {
+        $wiki_url = $form_state->getValue([$value->field_name, 0,'url']) . $driki_url_params;
+        // watchdog('driki', 'Driki url params: @m', array('@m' => var_export($driki_url_params, TRUE)), WATCHDOG_INFO);
+        if (!empty($wiki_url)) {
+          // watchdog('driki', 'Driki info - wiki url: @m', array('@m' => var_export($wiki_url, TRUE)), WATCHDOG_INFO);
+          $data = _driki_curl_get_page($wiki_url);
+          $xml = simplexml_load_string($data);
+
+          // Replace lastupdated information
+          $updatepattern = '/({{lastupdated_at)(.*)(lastupdated_by}}+?)/s';
+
+          $updatereplace = t('last updated on') . ' ' . format_date(strtotime($xml->updated_on), 'medium') . ' ' . t('by') . ' ' . $xml->author['name'];
+          $xml->text = preg_replace($updatepattern, $updatereplace, $xml->text);
+
+          // Remove unnecessary stuff (currently redmine-specific)
+          $wiki_trash = array(
+            "|h2. Comments|",
+            "|(\{\{)(comment.*?)(\}\})|",
+            "|(\{\{)(>toc.*?)(\}\})|",
+            );
+          $xml->text = preg_replace($wiki_trash, "", $xml->text);
+
+          // Replace image-tokens and store them accordingly
+          if($driki_params && in_array('include=attachments', $driki_params)) {
+            $attachments = json_decode(json_encode($xml->attachments), TRUE);
+            if(isset($attachments['attachment']['id'])) {
+              // Only one attachment
+              $file_url = $attachments['attachment']['content_url'] . $driki_url_params;
+              $file_get = _driki_curl_get_page($file_url);
+              $file_dest = 'public://driki/attachments/' . $attachments['attachment']['filename'];
+              // if (file_destination($file_dest, FILE_EXISTS_ERROR)) {
+                // The file doesnt exist yet, so we can save it
+              $file = file_save_data($file_get, $file_dest, FILE_EXISTS_REPLACE);
+              // }
+              $filepath = $file->url();
+              if(in_array($file->getMimeType(), array('image/jpeg', 'image/png', 'image/gif', 'image/bmp', 'image/x-ms-bmp'))) {
+                $imghtml = '<img src="' . $filepath . '" />';
+                $xml->text = preg_replace('/(!)([^!\s]*)(!+?)/s', $imghtml, $xml->text, 1);
+              }
+            }
+            else if(isset($attachments['attachment'][0]['id'])) {
+              // Multiple attachments
+              foreach($attachments['attachment'] as $attachment) {
+                // Load the files contents
+                $file_url = $attachment['content_url'] . $driki_url_params;
+                $file_get = _driki_curl_get_page($file_url);
+                $file_dest = 'public://driki/attachments/' . $attachment['filename'];
+                // if (file_destination($file_dest, FILE_EXISTS_ERROR)) {
+                  // The file doesnt exist yet, so we can save it
+                $file = file_save_data($file_get, $file_dest, FILE_EXISTS_REPLACE);
+                // }
+                  // $xml->text = preg_replace('/(!)([^!\s]*)(!+?)/s', '!' . $file->fid . '!', $xml->text, 1);
+                  // $xml->text = preg_replace('/^!((?:(?!drikiimgplaceholder).)+)!$/im', '!drikiimgplaceholder' . $file->fid . '!', $xml->text, 1);
+                $filepath = $file->url();
+                if(in_array($file->getMimeType(), array('image/jpeg', 'image/png', 'image/gif', 'image/bmp', 'image/x-ms-bmp'))) {
+                  $imghtml = '<img src="' . $filepath . '" />';
+                  // $xml->text = str_replace('!' . $attachment['content_url'] . '!', $imghtml, $xml->text);
+                  $xml->text = preg_replace('/(!)([^!\s]*)(!+?)/s', $imghtml, $xml->text, 1);
+                }
+              }
+            }
+          }
+
+          // Save the data from the text object to our wikipage field.
+          // Will be filtered on output.
+          $wk_wikipage = (string)$xml->text;
+          $form_entity->set($value->field_name, array('url' => $wk_url, 'format' => $wk_format, 'wikipage' => $wk_wikipage));
+          $form_entity->save();
+        }
+      }
+    }
+  }
+}
+
+// The following works too for manipulating data after node edit form submission
+// function driki_entity_presave(Drupal\Core\Entity\EntityInterface $entity) {
+//   // Working with entites: see https://www.drupal.org/node/2124403
+//   // and https://api.drupal.org/api/drupal/core%21modules%21node%21src%21Entity%21Node.php/class/Node/8
+//   // Make sure the entity is a node.
+//   if ($entity instanceof \Drupal\node\NodeInterface) {
+//     $entity->set('field_wicked', array('url' => 'new value', 'format' => 'new value', 'wikipage' => 'new value'));
+//     $entity->save();
+//   }
+// }
+
+/**
+ * Helper function to get the Wiki entry XML via curl.
+ */
+function _driki_curl_get_page($path) {
+  $ch = curl_init();
+  curl_setopt($ch, CURLOPT_URL, $path);
+  curl_setopt($ch, CURLOPT_FAILONERROR, 1);
+  curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+  curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+  $output = curl_exec($ch);
+  curl_close($ch);
+  return $output;
+}
+
+// /**
+//  * Helper function to aid file_get_contents in getting the attachment files.
+//  */
+// function _driki_file_url($url){
+//   $parts = parse_url($url);
+//   $path_parts = array_map('rawurldecode', explode('/', $parts['path']));
+
+//   return
+//     $parts['scheme'] . '://' .
+//     $parts['host'] .
+//     implode('/', array_map('rawurlencode', $path_parts))
+//   ;
+// }
+
+ /**
+  * Helper.
+  *
+  * get saved driki variable for parameters.
+  *
+  */
+function _driki_get_saved_params($type = NULL) {
+  $config = \Drupal::config('driki.settings');
+  $driki_params_str = $config->get('urlparams');
+
+  $driki_params = $driki_params_str ? explode(';', $driki_params_str) : FALSE;
+
+  if($type == 'array') {
+    return $driki_params;
+  }
+
+  $driki_url_params = '';
+  if($driki_params) {
+    foreach($driki_params as $param) {
+      if($driki_url_params == '') {
+        $driki_url_params .= '?' . $param;
+      }
+      else {
+        $driki_url_params .= '&' . $param;
+      }
+    }
+    return $driki_url_params;
+  }
+  return FALSE;
+}
+
+/**
+ * Implements hook_page_attachments().
+ *
+ * Adds the driki library to the page for any user.
+ */
+// function driki_page_attachments(array &$page) {
+//   $page['#attached']['library'][] = 'driki/widget-assets';
+// }

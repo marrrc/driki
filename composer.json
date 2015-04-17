@@ -1,0 +1,19 @@
+{
+  "name": "drupal/driki",
+  "description": "Driki module",
+  "type": "drupal-module",
+  "homepage": "https://github.com/medom/driki",
+  "authors": [
+    {
+      "name": "Marc Eschrich",
+      "email": "marc@dom.de",
+      "homepage": "https://github.com/medom",
+      "role": "Maintainer"
+    }
+  ],
+  "support": {
+    "issues": "https://github.com/medom/driki/issues"
+  },
+  "minimum-stability": "dev",
+  "require": { }
+}

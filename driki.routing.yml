@@ -1,0 +1,7 @@
+driki.admin:
+  path: '/admin/config/services/driki'
+  defaults:
+    _form: 'Drupal\driki\Form\DrikiConfigForm'
+    _title: 'Driki settings'
+  requirements:
+    _permission: 'administer site configuration'

@@ -1,0 +1,31 @@
+Installation
+============
+1) Make sure that cURL PHP extension is enabled for your environment,
+   because Driki relies on it to download the XML.
+
+2) Place Driki in your modules directory.
+
+3) Download Wiky.php: https://github.com/lahdekorpi/Wiky.php
+   and put wiky.inc.php in sites/all/libraries/wiky/
+   Driki relies on this class to support further parsing of
+   Wiki syntax (e.g. lists). Afterwars clear the cache!
+
+4) Add a field of the new type "Wiki entry" to your content type.
+
+5) Create or edit a node. At the Driki widget you will see 2 form fields:
+  - URL: holds the absolute path to your XML.
+  - Filter Format: lists all available text formats of your Drupal installation.
+    Choose a format whose filters should be applied to the imported data during
+    rendering of the output.
+    Note: If your selected text format has multiple different filters enabled,
+    it would be best to make your Wiki syntax filter to be the first one that
+    gets applied, otherwise results may be unexpected (especially when adding
+    HTML like line break replacements etc.).
+  - Once you save the node, Driki will download the XML and save it along with
+    the URL and text format within the field database table.
+  - View your node - The imported data should be parsed according to your
+  	selected set of filters.
+
+Note: Keep in mind that there are not many precautions of what Driki will save
+		from the XML - so make sure that the field is only available to a selection
+		of trusted users/roles.

@@ -1,0 +1,10 @@
+configure: driki.admin
+name: 'Driki'
+description: 'Reads wikis and offers a drupal editor the ability to manage the content within drupal context.'
+package: Services
+core: 8.x
+type: module
+dependencies:
+  - libraries
+  - field
+  - filter

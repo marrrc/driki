@@ -1,0 +1,8 @@
+.driki-field-column {
+  float: left;
+  width: 48%;
+}
+
+.driki-field-column .form-text {
+  width: 95%;
+}
