@@ -149,8 +149,8 @@ function _driki_field_process($form, &$form_state) {
     // If driki field was found, get the XML, filter it with the chosen format &
     // populate the wikipage data column.
     if (isset($value->field_type) && $value->field_type == 'driki_field') {
-      $extra_params = $form_state->getValue('driki_tmp_extra_params');
-      $fetch_data   = $form_state->getValue('driki_tmp_fetch_data');
+      $extra_params = $form_state->getValue([$value->field_name, 0, 'driki_tmp_extra_params']);
+      $fetch_data   = $form_state->getValue([$value->field_name, 0, 'driki_tmp_fetch_data']);
       // Get import parameters
       $driki_url_params = _driki_get_saved_params();
       $driki_params = _driki_get_saved_params('array');
