@@ -133,7 +133,6 @@ function driki_form_node_form_alter(&$form, \Drupal\Core\Form\FormStateInterface
       $form['actions']['submit']['#submit'][] = '_driki_field_process';
       break;
     }
-    $form_state->setValue(['field_wicked', 0, 'wikipage'], 'test');
   }
 }
 
@@ -143,8 +142,6 @@ function driki_form_node_form_alter(&$form, \Drupal\Core\Form\FormStateInterface
 function _driki_field_process($form, &$form_state) {
   // See https://www.drupal.org/node/2310411
   // Get the actual driki fields.
-  $extra_params = $form_state->getValue('driki_tmp_extra_params');
-  $fetch_data   = $form_state->getValue('driki_tmp_fetch_data');
   $form_entity  = $form_state->getFormObject()->getEntity();
   $node_type    = $form_entity->bundle();
   $form_fields  = $form_entity->getFieldDefinitions();
@@ -152,6 +149,8 @@ function _driki_field_process($form, &$form_state) {
     // If driki field was found, get the XML, filter it with the chosen format &
     // populate the wikipage data column.
     if (isset($value->field_type) && $value->field_type == 'driki_field') {
+      $extra_params = $form_state->getValue('driki_tmp_extra_params');
+      $fetch_data   = $form_state->getValue('driki_tmp_fetch_data');
       // Get import parameters
       $driki_url_params = _driki_get_saved_params();
       $driki_params = _driki_get_saved_params('array');
