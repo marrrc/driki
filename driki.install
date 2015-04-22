@@ -1,16 +1,13 @@
 <?php
 
-use Drupal\Core\File\FileSystem;
+use \Drupal\Core\File\FileSystem;
 /**
  * @file
  * Install stuff for Driki
  */
 function driki_install() {
 	// Create our default attachments directory
-	// drupal_mkdir('public://driki/attachments', NULL, TRUE);
-	// \Drupal\Core\File\FileSystem::mkdir('public://driki/attachments', NULL, TRUE);
-	mkdir('public://driki/attachments', NULL, TRUE);
-	// \Drupal\Core\StreamWrapper::rmdir('public://driki/attachments', NULL, TRUE);
+	\Drupal::service('file_system')->mkdir('public://driki/attachments', NULL, TRUE);
   // drupal_set_message(field_filter_xss(t('Driki successfully installed, can be configured !here.', array('!here' => l(t('here'), 'admin/config/services/driki')))));
 }
 
@@ -18,9 +15,5 @@ function driki_install() {
  * Implements hook_uninstall().
  */
 function driki_uninstall() {
-	// drupal_rmdir('public://driki/attachments');
-	// \Drupal\Core\File\FileSystem::rmdir('public://driki/attachments');
-	rmdir('public://driki/attachments');
-	// \Drupal\Core\StreamWrapper::rmdir('public://driki/attachments');
-  // \Drupal::config('driki.settings')->clear('urlparams')->save();
+	file_unmanaged_delete_recursive('public://driki');
 }
