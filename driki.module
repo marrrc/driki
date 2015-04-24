@@ -29,80 +29,6 @@ function driki_theme($existing, $type, $theme, $path) {
   );
 }
 
-/**
- * Implements hook_field_validate().
- */
-// function driki_field_validate($entity_type, $entity, $field, $instance, $langcode, $items, &$errors) {
-//   foreach ($items as $delta => $item) {
-//     // Dont validate if we dont want to fetch the data - so no processing done.
-//     if($item['driki_tmp_fetch_data'] == 0) break;
-
-//     if (!empty($item['url'])) {
-//       // Check for valid URL.
-//       if (!valid_url($item['url'], $absolute = TRUE)) {
-//         $errors[$field['field_name']][$langcode][$delta][] = array(
-//           'error' => 'driki_invalid',
-//           'message' => t('@label must be a valid URL.', array('@label' => $instance['label'])),
-//         );
-//       }
-
-//       $driki_url_params = _driki_get_saved_params();
-
-//       // Get per temporaray, per field parameters
-//       if(isset($item['driki_tmp_extra_params']) && !empty($item['driki_tmp_extra_params'])) {
-//         $tmp_params = explode(';', $item['driki_tmp_extra_params']);
-//         foreach($tmp_params as $tmp_param) {
-//           if($driki_url_params == '') {
-//           $driki_url_params .= '?' . $tmp_param;
-//           }
-//           else {
-//             $driki_url_params .= '&' . $tmp_param;
-//           }
-//         }
-//       }
-
-//       $wiki_url = $item['url'] . $driki_url_params;
-//       // watchdog('driki', 'wiki url: @m', array('@m' => var_export($wiki_url, TRUE)), WATCHDOG_INFO);
-//       $data = _driki_curl_get_page($wiki_url);
-
-//       if (!$data) {
-//         // Resource could not be retrieved.
-//         $errors[$field['field_name']][$langcode][$delta][] = array(
-//           'error' => 'driki_invalid',
-//           'message' => t('@label: Resource could not be retrieved.', array('@label' => $instance['label'])),
-//         );
-//       }
-
-//       libxml_clear_errors();
-//       libxml_use_internal_errors(TRUE);
-//       $xml = simplexml_load_string($data);
-
-//       if (!$xml) {
-//         // No valid XML.
-//         $errors = libxml_get_errors();
-//         $error_output = '<ul>';
-//         foreach ($errors as $error) {
-//           $error_output .= '<li>' . $error->message . '(error code ' . $error->code . ')</li>';
-//         }
-
-//         if (empty($errors)) {
-//           $message = t('@label must be valid wiki XML.', array('@label' => $instance['label']));
-//         }
-//         else {
-//           $message = t('@label must be valid wiki XML.<br />Messages given by SimpleXML: @error', array('@label' => $instance['label'], 'error' => $error_output));
-//         }
-
-//         $error_output .= '</ul>';
-//         $errors[$field['field_name']][$langcode][$delta][] = array(
-//           'error' => 'driki_invalid',
-//           'message' => $message,
-//         );
-//       }
-//     }
-//   }
-// }
-
-
 // /**
 //  * Implements hook_node_form_alter().
 //  */
@@ -182,9 +108,7 @@ function _driki_field_process($form, &$form_state) {
       }
       else {
         $wiki_url = $form_state->getValue([$value->field_name, 0,'url']) . $driki_url_params;
-        // watchdog('driki', 'Driki url params: @m', array('@m' => var_export($driki_url_params, TRUE)), WATCHDOG_INFO);
         if (!empty($wiki_url)) {
-          // watchdog('driki', 'Driki info - wiki url: @m', array('@m' => var_export($wiki_url, TRUE)), WATCHDOG_INFO);
           $data = _driki_curl_get_page($wiki_url);
           $xml = simplexml_load_string($data);
 
@@ -197,8 +121,10 @@ function _driki_field_process($form, &$form_state) {
           // Remove unnecessary stuff (currently redmine-specific)
           $wiki_trash = array(
             "|h2. Comments|",
+            "|h1. Comments|",
             "|(\{\{)(comment.*?)(\}\})|",
             "|(\{\{)(>toc.*?)(\}\})|",
+            "|(\{\{)(fnlist.*?)(\}\})|",
             );
           $xml->text = preg_replace($wiki_trash, "", $xml->text);
 
@@ -254,17 +180,6 @@ function _driki_field_process($form, &$form_state) {
   }
 }
 
-// The following works too for manipulating data after node edit form submission
-// function driki_entity_presave(Drupal\Core\Entity\EntityInterface $entity) {
-//   // Working with entites: see https://www.drupal.org/node/2124403
-//   // and https://api.drupal.org/api/drupal/core%21modules%21node%21src%21Entity%21Node.php/class/Node/8
-//   // Make sure the entity is a node.
-//   if ($entity instanceof \Drupal\node\NodeInterface) {
-//     $entity->set('field_wicked', array('url' => 'new value', 'format' => 'new value', 'wikipage' => 'new value'));
-//     $entity->save();
-//   }
-// }
-
 /**
  * Helper function to get the Wiki entry XML via curl.
  */
@@ -279,20 +194,6 @@ function _driki_curl_get_page($path) {
   curl_close($ch);
   return $output;
 }
-
-// /**
-//  * Helper function to aid file_get_contents in getting the attachment files.
-//  */
-// function _driki_file_url($url){
-//   $parts = parse_url($url);
-//   $path_parts = array_map('rawurldecode', explode('/', $parts['path']));
-
-//   return
-//     $parts['scheme'] . '://' .
-//     $parts['host'] .
-//     implode('/', array_map('rawurlencode', $path_parts))
-//   ;
-// }
 
  /**
   * Helper.
@@ -324,12 +225,3 @@ function _driki_get_saved_params($type = NULL) {
   }
   return FALSE;
 }
-
-/**
- * Implements hook_page_attachments().
- *
- * Adds the driki library to the page for any user.
- */
-// function driki_page_attachments(array &$page) {
-//   $page['#attached']['library'][] = 'driki/widget-assets';
-// }

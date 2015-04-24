@@ -46,14 +46,16 @@ class DrikiFieldDefaultWidget extends WidgetBase {
       '#title' => 'Driki',
     );
 
-    $element['#attached']['library'][] = 'driki/driki-field-widget-renderer';
+    $field_settings = $this->getFieldSettings();
+    $settings = $this->getSettings();
 
+
+
+    $element['#attached']['library'][] = 'driki/driki-field-widget-renderer';
     $element['url'] = array(
       '#type' => 'textfield',
       '#title' => t('URL'),
       '#default_value' => isset($items[$delta]->url) ? $items[$delta]->url : NULL,
-      // '#default_value' => $items->get($delta)->getUrl(),
-      // '#default_value' => 'yolo',
     );
 
     $formats = filter_formats();
@@ -72,6 +74,7 @@ class DrikiFieldDefaultWidget extends WidgetBase {
     $element['wikipage'] = array(
       '#type' => 'hidden',
       '#default_value' => isset($items[$delta]->wikipage) ? $items[$delta]->wikipage : NULL,
+      '#element_validate' => array(array($this, 'validateResponse')),
     );
 
     return $element;
@@ -92,6 +95,27 @@ class DrikiFieldDefaultWidget extends WidgetBase {
     );
 
     return $form;
+  }
+
+  /**
+   * Validate a response.
+   */
+  public function validateResponse(&$element, FormStateInterface &$form_state, $form) {
+    // $input = $element['#value'];
+    // $video_id = youtube_get_video_id($input);
+
+    // if ($video_id && strlen($video_id) <= 20) {
+    //   $video_id_element = array(
+    //     '#parents' => $element['#parents'],
+    //   );
+    //   array_pop($video_id_element['#parents']);
+    //   $video_id_element['#parents'][] = 'video_id';
+    //   $form_state->setValueForElement($video_id_element, $video_id);
+    // }
+    // elseif (!empty($input)) {
+    //   $message = t('Please provide a valid YouTube URL.');
+    //   $form_state->setErrorByName($element['#parents'][$element['#delta']], $message);
+    // }
   }
 
 }
