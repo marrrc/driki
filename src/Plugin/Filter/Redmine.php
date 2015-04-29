@@ -49,7 +49,6 @@ class Redmine extends FilterBase {
         );
 
       $text = preg_replace($rm_pattern, $rm_replacement, $text);
-      // print "<pre>";var_dump($text);print "</pre>";exit;
     }
 
     return new FilterProcessResult($text);
