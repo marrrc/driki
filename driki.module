@@ -71,12 +71,12 @@ function _driki_field_process($form, &$form_state) {
   $form_entity  = $form_state->getFormObject()->getEntity();
   $node_type    = $form_entity->bundle();
   $form_fields  = $form_entity->getFieldDefinitions();
+
   foreach ($form_fields as $key => $value) {
     // If driki field was found, get the XML, filter it with the chosen format &
-    // populate the wikipage data column.
-    if (isset($value->field_type) && $value->field_type == 'driki_field') {
-      $extra_params = $form_state->getValue([$value->field_name, 0, 'driki_tmp_extra_params']);
-      $fetch_data   = $form_state->getValue([$value->field_name, 0, 'driki_tmp_fetch_data']);
+    if ($value->getType() == 'driki_field') {
+      $extra_params = $form_state->getValue([$value->getName(), 0, 'driki_tmp_extra_params']);
+      $fetch_data   = $form_state->getValue([$value->getName(), 0, 'driki_tmp_fetch_data']);
       // Get import parameters
       $driki_url_params = _driki_get_saved_params();
       $driki_params = _driki_get_saved_params('array');
@@ -93,21 +93,21 @@ function _driki_field_process($form, &$form_state) {
         }
       }
 
-      $wk_url = $form_state->getValue([$value->field_name, 0, 'url']);
-      $wk_format = $form_state->getValue([$value->field_name, 0, 'format']);
+      $wk_url = $form_state->getValue([$value->getName(), 0, 'url']);
+      $wk_format = $form_state->getValue([$value->getName(), 0, 'format']);
       $wk_wikipage = '';
 
       // Dont validate if we dont want to fetch the data - so no processing done.
       if($fetch_data == 0) {
-        if ($form_state->hasValue([$value->field_name, 0,'wikipage']) && !$form_state->isValueEmpty([$value->field_name, 0,'wikipage'])) {
-          $wk_wikipage = $form_state->getValue([$value->field_name, 0,'wikipage']);
+        if ($form_state->hasValue([$value->getName(), 0,'wikipage']) && !$form_state->isValueEmpty([$value->getName(), 0,'wikipage'])) {
+          $wk_wikipage = $form_state->getValue([$value->getName(), 0,'wikipage']);
         }
         else {
           $wk_wikipage = '';
         }
       }
       else {
-        $wiki_url = $form_state->getValue([$value->field_name, 0,'url']) . $driki_url_params;
+        $wiki_url = $form_state->getValue([$value->getName(), 0,'url']) . $driki_url_params;
         if (!empty($wiki_url)) {
           $data = _driki_curl_get_page($wiki_url);
           $xml = simplexml_load_string($data);
@@ -172,7 +172,7 @@ function _driki_field_process($form, &$form_state) {
           // Save the data from the text object to our wikipage field.
           // Will be filtered on output.
           $wk_wikipage = (string)$xml->text;
-          $form_entity->set($value->field_name, array('url' => $wk_url, 'format' => $wk_format, 'wikipage' => $wk_wikipage));
+          $form_entity->set($value->getName(), array('url' => $wk_url, 'format' => $wk_format, 'wikipage' => $wk_wikipage));
           $form_entity->save();
         }
       }
